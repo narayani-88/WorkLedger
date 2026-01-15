@@ -60,7 +60,7 @@ Desktop.ini
 ### Application Secrets ###
 # It's better to use environment variables for secrets, 
 # but if you use properties files, be careful.
-# application-local.properties
-# application-secrets.properties
+**/src/main/resources/application.yaml
+**/src/main/resources/application.properties
 **/src/main/resources/application-*.properties
 !**/src/main/resources/application-dev.properties

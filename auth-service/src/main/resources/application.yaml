@@ -2,9 +2,9 @@ spring:
   application:
     name: auth-service
   datasource:
-    url: 
-    username: 
-    password: 
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/saas_platforms}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:812837}
 
   jpa:
     hibernate:
