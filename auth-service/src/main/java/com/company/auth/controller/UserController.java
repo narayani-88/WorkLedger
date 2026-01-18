@@ -2,6 +2,7 @@ package com.company.auth.controller;
 
 import com.company.auth.entity.User;
 import com.company.auth.service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,7 +22,7 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    public User registerUser(@RequestBody User user) {
+    public User registerUser(@Valid @RequestBody User user) {
         return userService.createUser(user.getEmail(), user.getPassword());
     }
 }

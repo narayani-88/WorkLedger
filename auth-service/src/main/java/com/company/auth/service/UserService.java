@@ -17,6 +17,9 @@ public class UserService {
     }
 
     public User createUser(String email, String password) {
+        if (userRepository.existsByEmail(email)) {
+            throw new RuntimeException("Error: Email is already in use!");
+        }
         User user = new User();
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
