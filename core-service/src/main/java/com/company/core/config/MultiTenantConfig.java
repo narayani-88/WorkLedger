@@ -28,9 +28,8 @@ public class MultiTenantConfig {
             CurrentTenantIdentifierResolver currentTenantIdentifierResolver) {
 
         Map<String, Object> properties = new HashMap<>();
-        properties.put("hibernate.multiTenancy", "SCHEMA");
         properties.put("hibernate.multi_tenant_connection_provider", multiTenantConnectionProvider);
-        properties.put("hibernate.multi_tenant_identifier_resolver", currentTenantIdentifierResolver);
+        properties.put("hibernate.tenant_identifier_resolver", currentTenantIdentifierResolver);
         properties.put(Environment.DIALECT, "org.hibernate.dialect.PostgreSQLDialect");
         properties.put(Environment.SHOW_SQL, true);
         properties.put(Environment.FORMAT_SQL, true);

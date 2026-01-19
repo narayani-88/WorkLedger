@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { login, register } from './api/auth'
+import { login, register, linkTenant } from './api/auth'
 import { registerTenant, listTenants } from './api/tenant'
 import { getServices, logService } from './api/core'
 
