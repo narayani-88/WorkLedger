@@ -18,17 +18,21 @@ public class UserDetailsImpl implements UserDetails {
     @JsonIgnore
     private String password;
 
-    public UserDetailsImpl(Long id, String email, String password) {
+    private String tenantId;
+
+    public UserDetailsImpl(Long id, String email, String password, String tenantId) {
         this.id = id;
         this.email = email;
         this.password = password;
+        this.tenantId = tenantId;
     }
 
     public static UserDetailsImpl build(User user) {
         return new UserDetailsImpl(
                 user.getId(),
                 user.getEmail(),
-                user.getPassword());
+                user.getPassword(),
+                user.getTenantId());
     }
 
     @Override
@@ -42,6 +46,10 @@ public class UserDetailsImpl implements UserDetails {
 
     public String getEmail() {
         return email;
+    }
+
+    public String getTenantId() {
+        return tenantId;
     }
 
     @Override

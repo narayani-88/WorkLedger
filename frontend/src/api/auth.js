@@ -42,3 +42,17 @@ export const register = async (email, password) => {
 
     return handleResponse(response);
 };
+export const linkTenant = async (userId, tenantId) => {
+    const response = await fetch(`${API_URL}/auth/users/${userId}/tenant`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(tenantId)
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to link tenant to user');
+    }
+};

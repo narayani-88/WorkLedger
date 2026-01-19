@@ -39,7 +39,19 @@ public class AuthController {
                 "Login successful",
                 userDetails.getEmail(),
                 userDetails.getId(),
-                jwt
+                jwt,
+                userDetails.getTenantId()
         );
+    }
+
+    @PutMapping("/users/{userId}/tenant")
+    public void linkTenant(@PathVariable Long userId, @RequestBody String tenantId) {
+        // Simple update logic, in a real app would use UserService
+        userRepository.findById(userId).ifPresent(user -> {
+            // Remove quotes if sent as plain string in JSON body correctly
+            String tid = tenantId.replace("\"", "");
+            user.setTenantId(tid);
+            userRepository.save(user);
+        });
     }
 }

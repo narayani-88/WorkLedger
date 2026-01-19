@@ -26,4 +26,11 @@ public class UserService {
 
         return userRepository.save(user);
     }
+
+    public User updateUserTenant(Long userId, String tenantId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setTenantId(tenantId);
+        return userRepository.save(user);
+    }
 }

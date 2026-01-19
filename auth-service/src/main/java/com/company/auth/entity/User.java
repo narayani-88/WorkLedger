@@ -23,6 +23,8 @@ public class User {
     @Size(min = 6)
     private String password;
 
+    private String tenantId;
+
     public User() {
     }
 
@@ -48,5 +50,13 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 }
