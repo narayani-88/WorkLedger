@@ -29,7 +29,7 @@ public class TenantService {
     }
     
     public Tenant getTenantByTenantId(String tenantId) {
-        return tenantRepository.findByTenantId(tenantId);
+        return tenantRepository.findByTenantId(tenantId).orElse(null);
     }
 
     @Transactional
