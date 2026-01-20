@@ -34,4 +34,17 @@ public class TenantController {
             return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
         }
     }
+    
+    @GetMapping("/{tenantId}")
+    public ResponseEntity<?> getTenantProfile(@PathVariable String tenantId) {
+        try {
+            Tenant tenant = tenantService.getTenantByTenantId(tenantId);
+            if (tenant == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(tenant);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
+        }
+    }
 }

@@ -30,6 +30,22 @@ public class Tenant {
     private int freelancerCount;
     private String website;
     private String description;
+    
+    // New comprehensive profile fields
+    private String servicesOffered; // Comma-separated services
+    private String country;
+    private String city;
+    private String address;
+    private String contactEmail;
+    private String contactPhone;
+    private Integer foundingYear;
+    private String revenueRange; // e.g., "0-100K", "100K-1M", "1M-10M", "10M+"
+    
+    @Column(name = "created_at")
+    private java.time.LocalDateTime createdAt;
+    
+    @Column(name = "updated_at")
+    private java.time.LocalDateTime updatedAt;
 
     public Tenant() {
     }
@@ -128,5 +144,85 @@ public class Tenant {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getServicesOffered() {
+        return servicesOffered;
+    }
+
+    public void setServicesOffered(String servicesOffered) {
+        this.servicesOffered = servicesOffered;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getContactEmail() {
+        return contactEmail;
+    }
+
+    public void setContactEmail(String contactEmail) {
+        this.contactEmail = contactEmail;
+    }
+
+    public String getContactPhone() {
+        return contactPhone;
+    }
+
+    public void setContactPhone(String contactPhone) {
+        this.contactPhone = contactPhone;
+    }
+
+    public Integer getFoundingYear() {
+        return foundingYear;
+    }
+
+    public void setFoundingYear(Integer foundingYear) {
+        this.foundingYear = foundingYear;
+    }
+
+    public String getRevenueRange() {
+        return revenueRange;
+    }
+
+    public void setRevenueRange(String revenueRange) {
+        this.revenueRange = revenueRange;
+    }
+
+    public java.time.LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(java.time.LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public java.time.LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(java.time.LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

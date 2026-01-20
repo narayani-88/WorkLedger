@@ -2,6 +2,7 @@ package com.company.tenant.service;
 
 import com.company.tenant.entity.Tenant;
 import com.company.tenant.repository.TenantRepository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -18,8 +19,17 @@ public class TenantService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @PostConstruct
+    public void init() {
+        patchPublicTenantsTable();
+    }
+
     public List<Tenant> getAllTenants() {
         return tenantRepository.findAll();
+    }
+    
+    public Tenant getTenantByTenantId(String tenantId) {
+        return tenantRepository.findByTenantId(tenantId);
     }
 
     @Transactional
@@ -53,6 +63,18 @@ public class TenantService {
             tenant.setFreelancerCount(tenantRequest.getFreelancerCount());
             tenant.setWebsite(tenantRequest.getWebsite());
             tenant.setDescription(tenantRequest.getDescription());
+            
+            // Set new comprehensive profile fields
+            tenant.setServicesOffered(tenantRequest.getServicesOffered());
+            tenant.setCountry(tenantRequest.getCountry());
+            tenant.setCity(tenantRequest.getCity());
+            tenant.setAddress(tenantRequest.getAddress());
+            tenant.setContactEmail(tenantRequest.getContactEmail());
+            tenant.setContactPhone(tenantRequest.getContactPhone());
+            tenant.setFoundingYear(tenantRequest.getFoundingYear());
+            tenant.setRevenueRange(tenantRequest.getRevenueRange());
+            tenant.setCreatedAt(java.time.LocalDateTime.now());
+            tenant.setUpdatedAt(java.time.LocalDateTime.now());
 
             tenant = tenantRepository.save(tenant);
             System.out.println("Saved rich tenant metadata to public schema");
@@ -62,6 +84,7 @@ public class TenantService {
 
             // 3. Mark as active
             tenant.setStatus("ACTIVE");
+            tenant.setUpdatedAt(java.time.LocalDateTime.now());
             return tenantRepository.save(tenant);
         } catch (Exception e) {
             System.err.println("FATAL ERROR in registerTenant: " + e.getMessage());
@@ -79,6 +102,19 @@ public class TenantService {
             jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS freelancer_count INTEGER DEFAULT 0");
             jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS website VARCHAR(255)");
             jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS description TEXT");
+            
+            // New comprehensive profile fields
+            jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS services_offered TEXT");
+            jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS country VARCHAR(100)");
+            jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS city VARCHAR(100)");
+            jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS address TEXT");
+            jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255)");
+            jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50)");
+            jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS founding_year INTEGER");
+            jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS revenue_range VARCHAR(50)");
+            jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+            jdbcTemplate.execute("ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+            
             System.out.println("Public.tenants table patching completed successfully.");
         } catch (Exception e) {
             System.err.println("Note: Manual patch for public.tenants table failed or columns already exist: " + e.getMessage());

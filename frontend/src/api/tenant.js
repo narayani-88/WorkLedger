@@ -24,3 +24,11 @@ export const listTenants = async () => {
     }
     return response.json();
 };
+
+export const getTenantProfile = async (tenantId) => {
+    const response = await fetch(`${API_URL}/${tenantId}`);
+    if (!response.ok) {
+        throw new Error('Could not fetch tenant profile');
+    }
+    return response.json();
+};
