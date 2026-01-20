@@ -22,6 +22,14 @@ export default defineConfig({
             '/api/services': {
                 target: 'http://localhost:8083',
                 changeOrigin: true,
+            },
+            '/api/employees': {
+                target: 'http://localhost:8083',
+                changeOrigin: true,
+            },
+            '/api/projects': {
+                target: 'http://localhost:8083',
+                changeOrigin: true,
             }
         }
     }

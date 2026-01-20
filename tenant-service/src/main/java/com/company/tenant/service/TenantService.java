@@ -22,6 +22,7 @@ public class TenantService {
     @PostConstruct
     public void init() {
         patchPublicTenantsTable();
+        patchAllTenantSchemas();
     }
 
     public List<Tenant> getAllTenants() {
@@ -137,16 +138,87 @@ public class TenantService {
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".services (" +
                     "id SERIAL PRIMARY KEY, " +
                     "service_name VARCHAR(255) NOT NULL, " +
-                    "service_type VARCHAR(100) NOT NULL, " + // e.g., 'Website Mockup', 'Backend Audit'
+                    "service_type VARCHAR(100) NOT NULL, " +
                     "description TEXT, " +
                     "status VARCHAR(50) DEFAULT 'PENDING', " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
             
-            System.out.println("Successfully provisioned Business Services tables in schema: " + schemaName);
+            // Create employees table
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".employees (" +
+                    "id SERIAL PRIMARY KEY, " +
+                    "name VARCHAR(255) NOT NULL, " +
+                    "email VARCHAR(255) UNIQUE NOT NULL, " +
+                    "position VARCHAR(100), " +
+                    "department VARCHAR(100), " +
+                    "salary DECIMAL(10,2), " +
+                    "hire_date DATE, " +
+                    "status VARCHAR(50) DEFAULT 'ACTIVE', " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+            
+            // Create projects table
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".projects (" +
+                    "id SERIAL PRIMARY KEY, " +
+                    "project_name VARCHAR(255) NOT NULL, " +
+                    "service_id INTEGER REFERENCES " + schemaName + ".services(id), " +
+                    "status VARCHAR(50) DEFAULT 'PLANNING', " +
+                    "budget DECIMAL(10,2), " +
+                    "spent DECIMAL(10,2) DEFAULT 0, " +
+                    "start_date DATE, " +
+                    "end_date DATE, " +
+                    "description TEXT, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+            
+            System.out.println("Successfully provisioned all tables (users, services, employees, projects) in schema: " + schemaName);
         } catch (Exception e) {
             System.err.println("ERROR during schema provisioning for: " + schemaName);
             e.printStackTrace();
             throw new RuntimeException("Schema provisioning failed: " + e.getMessage());
+        }
+    }
+    private void patchAllTenantSchemas() {
+        try {
+            List<Tenant> tenants = tenantRepository.findAll();
+            for (Tenant tenant : tenants) {
+                String schemaName = "tenant_" + tenant.getTenantId().toLowerCase().replace("-", "_");
+                System.out.println("Patching schema for tenant: " + schemaName);
+                
+                // Ensure services table exists (for older tenants)
+                jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".services (" +
+                        "id SERIAL PRIMARY KEY, " +
+                        "service_name VARCHAR(255) NOT NULL, " +
+                        "service_type VARCHAR(100) NOT NULL, " +
+                        "description TEXT, " +
+                        "status VARCHAR(50) DEFAULT 'PENDING', " +
+                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+                // Ensure employees table exists
+                jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".employees (" +
+                        "id SERIAL PRIMARY KEY, " +
+                        "name VARCHAR(255) NOT NULL, " +
+                        "email VARCHAR(255) UNIQUE NOT NULL, " +
+                        "position VARCHAR(100), " +
+                        "department VARCHAR(100), " +
+                        "salary DECIMAL(10,2), " +
+                        "hire_date DATE, " +
+                        "status VARCHAR(50) DEFAULT 'ACTIVE', " +
+                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+                // Ensure projects table exists
+                jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".projects (" +
+                        "id SERIAL PRIMARY KEY, " +
+                        "project_name VARCHAR(255) NOT NULL, " +
+                        "service_id INTEGER REFERENCES " + schemaName + ".services(id), " +
+                        "status VARCHAR(50) DEFAULT 'PLANNING', " +
+                        "budget DECIMAL(10,2), " +
+                        "spent DECIMAL(10,2) DEFAULT 0, " +
+                        "start_date DATE, " +
+                        "end_date DATE, " +
+                        "description TEXT, " +
+                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+            }
+            System.out.println("All tenant schemas patched successfully.");
+        } catch (Exception e) {
+            System.err.println("Note: Batch schema patching encountered issues: " + e.getMessage());
         }
     }
 }
