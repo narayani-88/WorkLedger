@@ -3,7 +3,7 @@ import { login, register, registerEmployee, linkTenant } from './api/auth'
 import { registerTenant, listTenants, getTenantProfile } from './api/tenant'
 import { getServices, logService } from './api/core'
 import { getEmployees, createEmployee, updateEmployee, deleteEmployee, getEmployeeAnalytics } from './api/employee'
-import { getProjects, createProject, updateProject, deleteProject, getProjectAnalytics, getActiveProjects } from './api/project'
+import { getProjects, createProject, updateProject, deleteProject, getProjectAnalytics, getActiveProjects, getProjectJourney } from './api/project'
 import { getTasks, getTasksByAssignee, createTask, updateTask } from './api/task'
 import { logTime, getLogsByEmployee, getLogsByProject } from './api/timeLog'
 
@@ -106,6 +106,11 @@ function App() {
   const [logDesc, setLogDesc] = useState('')
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState('')
+
+  // Project Journey state
+  const [expandedProjectId, setExpandedProjectId] = useState(null)
+  const [projectJourneyData, setProjectJourneyData] = useState(null)
+  const [loadingJourney, setLoadingJourney] = useState(false)
 
   useEffect(() => {
     if (user && activeTenantId) {
@@ -576,11 +581,11 @@ function App() {
         </div>
         <div className="stat-card">
           <div className="stat-label">Monthly Payroll</div>
-          <div className="stat-value">${employeeAnalytics?.totalPayroll || 0}</div>
+          <div className="stat-value">₹{employeeAnalytics?.totalPayroll || 0}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Total Budget</div>
-          <div className="stat-value">${projectAnalytics?.totalBudget || 0}</div>
+          <div className="stat-value">₹{projectAnalytics?.totalBudget || 0}</div>
         </div>
       </div>
 
@@ -608,6 +613,25 @@ function App() {
     </div>
   )
 
+  const handleExpandProject = async (projectId) => {
+    if (expandedProjectId === projectId) {
+      setExpandedProjectId(null)
+      setProjectJourneyData(null)
+      return
+    }
+
+    setExpandedProjectId(projectId)
+    setLoadingJourney(true)
+    try {
+      const journey = await getProjectJourney(activeTenantId, projectId)
+      setProjectJourneyData(journey)
+    } catch (err) {
+      setError('Failed to load project journey: ' + err.message)
+    } finally {
+      setLoadingJourney(false)
+    }
+  }
+
   const renderTeams = () => (
     <div className="page-content">
       <div className="page-header">
@@ -621,80 +645,196 @@ function App() {
       {success && <div className="status-box success">{success}</div>}
       {error && <div className="status-box error">{error}</div>}
 
-      <div className="comprehensive-dashboard" style={{ marginTop: '2rem' }}>
-        <div className="dashboard-card company-overview" style={{ gridColumn: 'span 3' }}>
-          <div className="card-header">
-            <h3>Project Workforce Insights</h3>
-            <span className="badge">LIVE DATA</span>
+      <div style={{ marginTop: '2.5rem', display: 'flex', flexDirection: 'column', gap: '2.5rem', maxWidth: '1400px', margin: '2.5rem auto' }}>
+        {activeProjectsDetailed.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '4rem', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px dashed var(--border-light)' }}>
+            <p style={{ color: 'var(--text-dim)', fontSize: '1.1rem' }}>No active projects found. Set a project to ACTIVE in Project Management.</p>
           </div>
-          <p className="hero-subtext" style={{ fontSize: '0.9rem', marginBottom: '2rem' }}>
-            Detailed breakdown of team payroll, member allocation, and project budget utilization.
-          </p>
-
-          <div className="services-list" style={{ maxHeight: 'none' }}>
-            {activeProjectsDetailed.length === 0 && <p className="empty-text">No active projects found. Set a project to ACTIVE to see it here.</p>}
-            {activeProjectsDetailed.map(proj => (
-              <div key={proj.id} className="insight-item" style={{ background: 'rgba(255,255,255,0.02)', padding: '2rem' }}>
-                <div className="insight-left" style={{ flex: 2 }}>
-                  <h3 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.5rem' }}>{proj.projectName}</h3>
-                  <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>{proj.description || 'No description provided'}</p>
-
-                  <div className="insight-meta" style={{ marginTop: '1.5rem' }}>
-                    <div className="stat-box" style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '1rem' }}>
-                      <div className="stat-value">{proj.employees?.length || 0}</div>
-                      <div className="stat-label">Members</div>
-                    </div>
-                    <div className="stat-box" style={{ background: 'rgba(16, 185, 129, 0.05)', padding: '1rem' }}>
-                      <div className="stat-value">${proj.totalTeamPayroll || 0}</div>
-                      <div className="stat-label">Team Payroll</div>
-                    </div>
-                    <div className="stat-box" style={{ background: 'rgba(14, 165, 233, 0.05)', padding: '1rem' }}>
-                      <div className="stat-value">${proj.budget}</div>
-                      <div className="stat-label">Project Budget</div>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '1.5rem' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>Assigned Team:</h4>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {proj.employees?.length > 0 ? proj.employees.map(e => (
-                        <span key={e.id} className="meta-tag" style={{ padding: '4px 12px', borderRadius: '20px' }}>
-                          {e.name} ({e.position})
-                        </span>
-                      )) : <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>No members assigned yet</span>}
-                    </div>
-                  </div>
+        ) : activeProjectsDetailed.map(proj => (
+          <div key={proj.id} style={{
+            background: 'var(--card-bg)',
+            borderRadius: '24px',
+            border: '1px solid var(--border-light)',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Project Header */}
+            <div style={{
+              padding: '2rem 2.5rem',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderBottom: '1px solid var(--border-light)',
+              background: 'linear-gradient(to right, rgba(99, 102, 241, 0.05), transparent)'
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.4rem' }}>
+                  <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.7rem', fontWeight: '800' }}>{proj.projectName}</h3>
+                  <span className="badge" style={{ background: 'var(--primary)', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.7rem' }}>ACTIVE</span>
                 </div>
-
-                <div className="insight-right" style={{ flex: 1, borderLeft: '1px solid var(--border-light)', paddingLeft: '2rem' }}>
-                  <div className="stat-box" style={{ marginBottom: '1rem', border: 'none', textAlign: 'right' }}>
-                    <div className="stat-label">Budget Spent</div>
-                    <div className="stat-value" style={{ color: 'var(--success)', fontSize: '1.5rem' }}>${proj.spent}</div>
-                  </div>
-                  <div className="progress-bar-container">
-                    <div className="progress-legend">
-                      <span>Utilization</span>
-                      <span>{proj.budget > 0 ? Math.round((proj.spent / proj.budget) * 100) : 0}%</span>
-                    </div>
-                    <div className="progress-bar">
-                      <div className="progress-fill employees" style={{ width: `${proj.budget > 0 ? (proj.spent / proj.budget) * 100 : 0}%` }}></div>
-                    </div>
-                  </div>
-                  <button className="mnc-btn" style={{ width: '100%', marginTop: '2rem' }} onClick={() => editProject(proj)}>
-                    Update Team / Edit Project
-                  </button>
-                </div>
+                <p style={{ color: 'var(--text-dim)', fontSize: '0.95rem', margin: 0 }}>{proj.description || 'Enterprise Solution'}</p>
               </div>
-            ))}
+              <button
+                className="mnc-btn"
+                style={{ height: 'fit-content', padding: '0.7rem 1.4rem', fontSize: '0.9rem' }}
+                onClick={() => handleExpandProject(proj.id)}
+              >
+                {expandedProjectId === proj.id ? '▼ Hide Journey' : '▶ Track Journey'}
+              </button>
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div style={{
+              padding: '1.5rem 2.5rem',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1.5rem',
+              background: 'rgba(255,255,255,0.01)'
+            }}>
+              <div style={{ padding: '1.2rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '600', marginBottom: '0.4rem' }}>Team Strength</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>{proj.employees?.length || 0} Professional(s)</div>
+              </div>
+              <div style={{ padding: '1.2rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '600', marginBottom: '0.4rem' }}>Project Budget</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--success)' }}>₹{proj.budget?.toLocaleString('en-IN')}</div>
+              </div>
+              <div style={{ padding: '1.2rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '600', marginBottom: '0.4rem' }}>Budget Utilization</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>₹{proj.spent?.toLocaleString('en-IN')}</div>
+              </div>
+            </div>
+
+            {/* Expandable Journey Section */}
+            {expandedProjectId === proj.id && (
+              <div style={{
+                padding: '2.5rem',
+                background: 'rgba(0,0,0,0.3)',
+                borderTop: '1px solid var(--border-light)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2.5rem'
+              }}>
+                {loadingJourney ? (
+                  <div style={{ textAlign: 'center', padding: '4rem' }}>
+                    <div className="spinner" style={{ margin: '0 auto' }}></div>
+                    <p style={{ color: 'var(--text-dim)', marginTop: '1.5rem', fontSize: '1.1rem' }}>Aggregating real-time project metrics...</p>
+                  </div>
+                ) : projectJourneyData ? (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.5rem' }}>
+                      <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', border: '1px solid var(--border-light)' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Total Man Hours</div>
+                        <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--primary)' }}>{projectJourneyData.stats.totalHoursLogged?.toFixed(1) || 0}h</div>
+                      </div>
+                      <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', border: '1px solid var(--border-light)' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Engagement Score</div>
+                        <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--success)' }}>{projectJourneyData.stats.activeMembers || 0} Active</div>
+                      </div>
+                      <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', border: '1px solid var(--border-light)' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Idle Resources</div>
+                        <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--error)' }}>{projectJourneyData.stats.inactiveMembers || 0}</div>
+                      </div>
+                    </div>
+
+                    {projectJourneyData.inactiveEmployees && projectJourneyData.inactiveEmployees.length > 0 && (
+                      <div style={{ background: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', padding: '1.2rem', borderRadius: '12px', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        <span style={{ fontSize: '1.4rem' }}>🚨</span>
+                        <div>
+                          <p style={{ margin: 0, fontWeight: '600', color: '#ffb3c1' }}>Idle Resource Warning</p>
+                          <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                            The following members haven't updated work in 7+ days: <span style={{ color: 'var(--text-main)', fontWeight: '500' }}>{projectJourneyData.inactiveEmployees.join(', ')}</span>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem' }}>
+                      <div>
+                        <h4 style={{ margin: '0 0 1.2rem 0', fontSize: '1.1rem', fontWeight: '600' }}>👥 Workforce Performance</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          {projectJourneyData.teamActivity?.map(emp => (
+                            <div key={emp.employeeId} style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '1.2rem',
+                              background: 'rgba(255,255,255,0.03)',
+                              borderRadius: '12px',
+                              borderLeft: `4px solid ${emp.isActive ? 'var(--success)' : 'var(--error)'}`
+                            }}>
+                              <div>
+                                <div style={{ fontSize: '1.05rem', fontWeight: '700' }}>{emp.name}</div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>{emp.position}</div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--primary)' }}>{emp.totalHours?.toFixed(1) || 0}h</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Updated: {emp.lastLogDate || 'Never'}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 style={{ margin: '0 0 1.2rem 0', fontSize: '1.1rem', fontWeight: '600' }}>📜 Recent Contributions</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '500px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                          {projectJourneyData.recentLogs?.map(log => (
+                            <div key={log.id} style={{ padding: '1.1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                <span style={{ fontWeight: '700', color: 'var(--secondary)' }}>{log.employeeName}</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{log.date}</span>
+                              </div>
+                              <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.5' }}>{log.description}</p>
+                              <div style={{ display: 'flex', gap: '1.2rem', marginTop: '0.8rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                                <span>⏱️ <b>{log.hours}h</b></span>
+                                {log.taskTitle && <span style={{ color: 'var(--primary)' }}>📋 {log.taskTitle}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            )}
+
+            {/* Admin Actions Footer */}
+            <div style={{
+              padding: '1.2rem 2.5rem',
+              background: 'rgba(255,255,255,0.01)',
+              borderTop: '1px solid var(--border-light)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '1.5rem'
+            }}>
+              <button
+                className="mnc-btn"
+                style={{ background: 'transparent', border: '1px solid var(--border-light)', color: 'var(--text-main)', opacity: 0.8 }}
+                onClick={() => editProject(proj)}
+              >
+                Configure Team
+              </button>
+              <button
+                className="mnc-btn"
+                onClick={() => { setCurrentPage('tasks'); setTaskProjectId(proj.id); setShowTaskForm(true); }}
+              >
+                Assign Project Task
+              </button>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     </div>
-  )
+  );
 
   const renderEmployees = () => (
     <div className="page-content">
       <div className="page-header">
+
         <h2>Employee Management</h2>
         <button className="mnc-btn" onClick={() => setShowEmployeeForm(true)}>+ Add Employee</button>
       </div>

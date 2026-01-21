@@ -1,21 +1,23 @@
 package com.company.core.controller;
 
-import com.company.core.entity.Project;
+import com.company.core.dto.*;
 import com.company.core.entity.Employee;
-import com.company.core.repository.ProjectRepository;
+import com.company.core.entity.Project;
+import com.company.core.entity.TimeLog;
 import com.company.core.repository.EmployeeRepository;
+import com.company.core.repository.ProjectRepository;
+import com.company.core.repository.TaskRepository;
+import com.company.core.repository.TimeLogRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/projects")
@@ -28,6 +30,12 @@ public class ProjectController {
     @Autowired
     private EmployeeRepository employeeRepository;
 
+    @Autowired
+    private TimeLogRepository timeLogRepository;
+
+    @Autowired
+    private TaskRepository taskRepository;
+
     @GetMapping
     public ResponseEntity<List<Project>> getAllProjects() {
         return ResponseEntity.ok(projectRepository.findAll());
@@ -38,6 +46,112 @@ public class ProjectController {
         return projectRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/journey")
+    public ResponseEntity<ProjectJourneyDTO> getProjectJourney(@PathVariable Long id) {
+        Optional<Project> projectOpt = projectRepository.findById(id);
+        if (projectOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Project project = projectOpt.get();
+        ProjectJourneyDTO journey = new ProjectJourneyDTO();
+        journey.setProjectId(project.getId());
+        journey.setProjectName(project.getProjectName());
+
+        // Get all time logs for this project
+        List<TimeLog> allLogs = timeLogRepository.findByProjectId(id);
+        
+        // Collect all employees involved (assigned to project, has tasks, or logged time)
+        java.util.Set<Employee> allParticipants = new java.util.HashSet<>(project.getEmployees());
+        
+        // Add employees who have logged time
+        allLogs.forEach(log -> allParticipants.add(log.getEmployee()));
+        
+        // Add employees who have tasks in this project
+        taskRepository.findByProjectId(id).stream()
+            .filter(t -> t.getAssignee() != null)
+            .forEach(t -> allParticipants.add(t.getAssignee()));
+
+        // Calculate team activity
+        List<EmployeeActivityDTO> teamActivity = new ArrayList<>();
+        LocalDate sevenDaysAgo = LocalDate.now().minusDays(7);
+        
+        for (Employee emp : allParticipants) {
+            List<TimeLog> empLogs = allLogs.stream()
+                    .filter(log -> log.getEmployee().getId().equals(emp.getId()))
+                    .collect(Collectors.toList());
+            
+            Double totalHours = empLogs.stream()
+                    .mapToDouble(log -> log.getHours().doubleValue())
+                    .sum();
+            
+            LocalDate lastLogDate = empLogs.stream()
+                    .map(TimeLog::getDate)
+                    .max(LocalDate::compareTo)
+                    .orElse(null);
+            
+            Boolean isActive = lastLogDate != null && !lastLogDate.isBefore(sevenDaysAgo);
+            
+            EmployeeActivityDTO activity = new EmployeeActivityDTO(
+                    emp.getId(),
+                    emp.getName(),
+                    emp.getPosition(),
+                    totalHours,
+                    lastLogDate,
+                    isActive
+            );
+            teamActivity.add(activity);
+            
+            // Track inactive employees
+            if (!isActive) {
+                journey.getInactiveEmployees().add(emp.getName());
+            }
+        }
+        journey.setTeamActivity(teamActivity);
+        
+        // Get recent logs (last 10)
+        List<TimeLogSummaryDTO> recentLogs = allLogs.stream()
+                .sorted((a, b) -> b.getDate().compareTo(a.getDate()))
+                .limit(10)
+                .map(log -> new TimeLogSummaryDTO(
+                        log.getId(),
+                        log.getEmployee().getName(),
+                        log.getHours().doubleValue(),
+                        log.getDate(),
+                        log.getDescription(),
+                        log.getTask() != null ? log.getTask().getTitle() : null
+                ))
+                .collect(Collectors.toList());
+        journey.setRecentLogs(recentLogs);
+        
+        // Calculate project stats
+        Double totalHoursLogged = allLogs.stream()
+                .mapToDouble(log -> log.getHours().doubleValue())
+                .sum();
+        
+        Integer activeMembers = (int) teamActivity.stream()
+                .filter(EmployeeActivityDTO::getIsActive)
+                .count();
+        
+        Integer inactiveMembers = teamActivity.size() - activeMembers;
+        
+        Integer totalTasks = taskRepository.findByProjectId(id).size();
+        Integer completedTasks = (int) taskRepository.findByProjectId(id).stream()
+                .filter(task -> "DONE".equals(task.getStatus()) || "COMPLETED".equals(task.getStatus()))
+                .count();
+        
+        ProjectStatsDTO stats = new ProjectStatsDTO(
+                totalHoursLogged,
+                activeMembers,
+                inactiveMembers,
+                totalTasks,
+                completedTasks
+        );
+        journey.setStats(stats);
+        
+        return ResponseEntity.ok(journey);
     }
 
     @PostMapping
@@ -150,3 +264,4 @@ public class ProjectController {
         return ResponseEntity.ok(analytics);
     }
 }
+

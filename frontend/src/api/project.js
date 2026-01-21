@@ -82,3 +82,14 @@ export const getActiveProjects = async (tenantId) => {
     if (!response.ok) throw new Error('Failed to fetch active projects');
     return response.json();
 };
+
+export const getProjectJourney = async (tenantId, projectId) => {
+    const response = await fetch(`${API_URL}/${projectId}/journey`, {
+        headers: {
+            'X-Tenant-ID': tenantId,
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+    });
+    if (!response.ok) throw new Error('Failed to fetch project journey');
+    return response.json();
+};

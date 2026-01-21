@@ -37,7 +37,7 @@ public class AuthController {
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-            String jwt = jwtUtils.generateJwtToken(userDetails.getEmail());
+            String jwt = jwtUtils.generateJwtToken(userDetails);
 
             System.out.println("Login successful for: " + userDetails.getEmail());
             return new LoginResponse(

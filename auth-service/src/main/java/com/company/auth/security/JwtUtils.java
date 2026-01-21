@@ -21,9 +21,12 @@ public class JwtUtils {
     @Value("${app.jwtExpirationMs}")
     private int jwtExpirationMs;
 
-    public String generateJwtToken(String email) {
+    public String generateJwtToken(UserDetailsImpl userPrincipal) {
         return Jwts.builder()
-                .setSubject(email)
+                .setSubject(userPrincipal.getEmail())
+                .claim("role", userPrincipal.getRole())
+                .claim("tenantId", userPrincipal.getTenantId())
+                .claim("employeeId", userPrincipal.getEmployeeId())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -42,6 +45,15 @@ public class JwtUtils {
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
+    }
+
+    public String getClaimFromJwtToken(String token, String claim) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get(claim, String.class);
     }
 
     public boolean validateJwtToken(String authToken) {
