@@ -30,6 +30,14 @@ export default defineConfig({
             '/api/projects': {
                 target: 'http://localhost:8083',
                 changeOrigin: true,
+            },
+            '/api/tasks': {
+                target: 'http://localhost:8083',
+                changeOrigin: true,
+            },
+            '/api/timelogs': {
+                target: 'http://localhost:8083',
+                changeOrigin: true,
             }
         }
     }

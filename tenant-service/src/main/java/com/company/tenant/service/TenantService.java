@@ -168,7 +168,35 @@ public class TenantService {
                     "description TEXT, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
             
-            System.out.println("Successfully provisioned all tables (users, services, employees, projects) in schema: " + schemaName);
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".project_employees (" +
+                    "project_id INTEGER REFERENCES " + schemaName + ".projects(id) ON DELETE CASCADE, " +
+                    "employee_id INTEGER REFERENCES " + schemaName + ".employees(id) ON DELETE CASCADE, " +
+                    "PRIMARY KEY (project_id, employee_id))");
+            
+            // Create tasks table
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".tasks (" +
+                    "id SERIAL PRIMARY KEY, " +
+                    "title VARCHAR(255) NOT NULL, " +
+                    "description TEXT, " +
+                    "status VARCHAR(50) DEFAULT 'TODO', " +
+                    "priority VARCHAR(20) DEFAULT 'MEDIUM', " +
+                    "due_date DATE, " +
+                    "project_id INTEGER REFERENCES " + schemaName + ".projects(id) ON DELETE CASCADE, " +
+                    "employee_id INTEGER REFERENCES " + schemaName + ".employees(id) ON DELETE SET NULL, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+            // Create time_logs table
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".time_logs (" +
+                    "id SERIAL PRIMARY KEY, " +
+                    "hours DECIMAL(5,2) NOT NULL, " +
+                    "date DATE NOT NULL, " +
+                    "description TEXT, " +
+                    "task_id INTEGER REFERENCES " + schemaName + ".tasks(id) ON DELETE SET NULL, " +
+                    "project_id INTEGER REFERENCES " + schemaName + ".projects(id) ON DELETE CASCADE, " +
+                    "employee_id INTEGER REFERENCES " + schemaName + ".employees(id) ON DELETE CASCADE, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+            
+            System.out.println("Successfully provisioned all tables (users, services, employees, projects, team) in schema: " + schemaName);
         } catch (Exception e) {
             System.err.println("ERROR during schema provisioning for: " + schemaName);
             e.printStackTrace();
@@ -179,7 +207,11 @@ public class TenantService {
         try {
             List<Tenant> tenants = tenantRepository.findAll();
             for (Tenant tenant : tenants) {
-                String schemaName = "tenant_" + tenant.getTenantId().toLowerCase().replace("-", "_");
+                String schemaName = tenant.getSchemaName();
+                if (schemaName == null) {
+                    System.err.println("Skipping schema patch for tenant with null schemaName: " + tenant.getTenantId());
+                    continue;
+                }
                 System.out.println("Patching schema for tenant: " + schemaName);
                 
                 // Ensure services table exists (for older tenants)
@@ -214,6 +246,35 @@ public class TenantService {
                         "start_date DATE, " +
                         "end_date DATE, " +
                         "description TEXT, " +
+                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+                // Ensure project_employees table exists
+                jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".project_employees (" +
+                        "project_id INTEGER REFERENCES " + schemaName + ".projects(id) ON DELETE CASCADE, " +
+                        "employee_id INTEGER REFERENCES " + schemaName + ".employees(id) ON DELETE CASCADE, " +
+                        "PRIMARY KEY (project_id, employee_id))");
+
+                // Ensure tasks table exists
+                jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".tasks (" +
+                        "id SERIAL PRIMARY KEY, " +
+                        "title VARCHAR(255) NOT NULL, " +
+                        "description TEXT, " +
+                        "status VARCHAR(50) DEFAULT 'TODO', " +
+                        "priority VARCHAR(20) DEFAULT 'MEDIUM', " +
+                        "due_date DATE, " +
+                        "project_id INTEGER REFERENCES " + schemaName + ".projects(id) ON DELETE CASCADE, " +
+                        "employee_id INTEGER REFERENCES " + schemaName + ".employees(id) ON DELETE SET NULL, " +
+                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+                // Ensure time_logs table exists
+                jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + schemaName + ".time_logs (" +
+                        "id SERIAL PRIMARY KEY, " +
+                        "hours DECIMAL(5,2) NOT NULL, " +
+                        "date DATE NOT NULL, " +
+                        "description TEXT, " +
+                        "task_id INTEGER REFERENCES " + schemaName + ".tasks(id) ON DELETE SET NULL, " +
+                        "project_id INTEGER REFERENCES " + schemaName + ".projects(id) ON DELETE CASCADE, " +
+                        "employee_id INTEGER REFERENCES " + schemaName + ".employees(id) ON DELETE CASCADE, " +
                         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
             }
             System.out.println("All tenant schemas patched successfully.");

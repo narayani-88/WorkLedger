@@ -27,21 +27,33 @@ public class AuthController {
 
     @PostMapping("/login")
     public LoginResponse login(@RequestBody LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
+        System.out.println("--- Login Process Started ---");
+        System.out.println("Attempting login for email: [" + loginRequest.getEmail() + "]");
+        
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        String jwt = jwtUtils.generateJwtToken(userDetails.getEmail());
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            String jwt = jwtUtils.generateJwtToken(userDetails.getEmail());
 
-        return new LoginResponse(
-                "Login successful",
-                userDetails.getEmail(),
-                userDetails.getId(),
-                jwt,
-                userDetails.getTenantId()
-        );
+            System.out.println("Login successful for: " + userDetails.getEmail());
+            return new LoginResponse(
+                    "Login successful",
+                    userDetails.getEmail(),
+                    userDetails.getId(),
+                    jwt,
+                    userDetails.getTenantId(),
+                    userDetails.getRole(),
+                    userDetails.getEmployeeId()
+            );
+        } catch (Exception e) {
+            System.err.println("LOGIN ERROR for email [" + loginRequest.getEmail() + "]: " + e.getMessage());
+            e.printStackTrace();
+            throw e; // Rethrowing so Spring still returns error, but now we have it logged
+        }
     }
 
     @PutMapping("/users/{userId}/tenant")

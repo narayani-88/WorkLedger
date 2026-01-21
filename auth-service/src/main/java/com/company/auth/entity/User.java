@@ -25,6 +25,11 @@ public class User {
 
     private String tenantId;
 
+    @Column(length = 20)
+    private String role = "ADMIN"; // ADMIN, EMPLOYEE
+
+    private Long employeeId; // Reference to employee record if role is EMPLOYEE
+
     public User() {
     }
 
@@ -58,5 +63,21 @@ public class User {
 
     public void setTenantId(String tenantId) {
         this.tenantId = tenantId;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public Long getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(Long employeeId) {
+        this.employeeId = employeeId;
     }
 }

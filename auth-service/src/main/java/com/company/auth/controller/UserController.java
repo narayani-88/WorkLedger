@@ -25,4 +25,12 @@ public class UserController {
     public User registerUser(@Valid @RequestBody User user) {
         return userService.createUser(user.getEmail(), user.getPassword());
     }
+
+    @PostMapping("/register-employee")
+    public User registerEmployee(@RequestBody User user) {
+        System.out.println("--- Register Employee Attempt ---");
+        System.out.println("Email: [" + user.getEmail() + "]");
+        System.out.println("Employee ID: " + user.getEmployeeId());
+        return userService.createUser(user.getEmail(), user.getPassword(), "EMPLOYEE", user.getEmployeeId());
+    }
 }

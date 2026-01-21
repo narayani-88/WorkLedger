@@ -34,6 +34,10 @@ public class Employee {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @ManyToMany(mappedBy = "employees")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private java.util.Set<Project> projects = new java.util.HashSet<>();
+
     public Employee() {
     }
 
@@ -118,5 +122,26 @@ public class Employee {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public java.util.Set<Project> getProjects() {
+        return projects;
+    }
+
+    public void setProjects(java.util.Set<Project> projects) {
+        this.projects = projects;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Employee)) return false;
+        Employee employee = (Employee) o;
+        return id != null && id.equals(employee.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }

@@ -29,15 +29,14 @@ public class MultiTenantConnectionProviderImpl implements MultiTenantConnectionP
     @Override
     public Connection getConnection(String tenantIdentifier) throws SQLException {
         Connection connection = getAnyConnection();
-        // Shift to the tenant's schema
-        connection.createStatement().execute("SET search_path TO " + tenantIdentifier);
+        connection.createStatement().execute("SET search_path TO \"" + tenantIdentifier + "\"");
         return connection;
     }
 
     @Override
     public void releaseConnection(String tenantIdentifier, Connection connection) throws SQLException {
         try {
-            connection.createStatement().execute("SET search_path TO public");
+            connection.createStatement().execute("SET search_path TO \"public\"");
         } catch (SQLException e) {
             // Ignore search path reset errors on close if necessary
         }

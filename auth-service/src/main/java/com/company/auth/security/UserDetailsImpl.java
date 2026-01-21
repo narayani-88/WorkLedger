@@ -19,12 +19,16 @@ public class UserDetailsImpl implements UserDetails {
     private String password;
 
     private String tenantId;
+    private String role;
+    private Long employeeId;
 
-    public UserDetailsImpl(Long id, String email, String password, String tenantId) {
+    public UserDetailsImpl(Long id, String email, String password, String tenantId, String role, Long employeeId) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.tenantId = tenantId;
+        this.role = role;
+        this.employeeId = employeeId;
     }
 
     public static UserDetailsImpl build(User user) {
@@ -32,7 +36,9 @@ public class UserDetailsImpl implements UserDetails {
                 user.getId(),
                 user.getEmail(),
                 user.getPassword(),
-                user.getTenantId());
+                user.getTenantId(),
+                user.getRole(),
+                user.getEmployeeId());
     }
 
     @Override
@@ -50,6 +56,14 @@ public class UserDetailsImpl implements UserDetails {
 
     public String getTenantId() {
         return tenantId;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public Long getEmployeeId() {
+        return employeeId;
     }
 
     @Override

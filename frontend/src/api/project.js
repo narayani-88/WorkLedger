@@ -71,3 +71,14 @@ export const getProjectAnalytics = async (tenantId) => {
     if (!response.ok) throw new Error('Failed to fetch analytics');
     return response.json();
 };
+
+export const getActiveProjects = async (tenantId) => {
+    const response = await fetch(`${API_URL}/active`, {
+        headers: {
+            'X-Tenant-ID': tenantId,
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+    });
+    if (!response.ok) throw new Error('Failed to fetch active projects');
+    return response.json();
+};

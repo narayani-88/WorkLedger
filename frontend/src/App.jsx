@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { login, register, linkTenant } from './api/auth'
+import { login, register, registerEmployee, linkTenant } from './api/auth'
 import { registerTenant, listTenants, getTenantProfile } from './api/tenant'
 import { getServices, logService } from './api/core'
 import { getEmployees, createEmployee, updateEmployee, deleteEmployee, getEmployeeAnalytics } from './api/employee'
-import { getProjects, createProject, updateProject, deleteProject, getProjectAnalytics } from './api/project'
+import { getProjects, createProject, updateProject, deleteProject, getProjectAnalytics, getActiveProjects } from './api/project'
+import { getTasks, getTasksByAssignee, createTask, updateTask } from './api/task'
+import { logTime, getLogsByEmployee, getLogsByProject } from './api/timeLog'
 
 const Logo = () => (
   <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -52,6 +54,7 @@ function App() {
   const [employeeList, setEmployeeList] = useState([])
   const [services, setServices] = useState([])
   const [projects, setProjects] = useState([])
+  const [activeProjectsDetailed, setActiveProjectsDetailed] = useState([])
   const [employeeAnalytics, setEmployeeAnalytics] = useState(null)
   const [projectAnalytics, setProjectAnalytics] = useState(null)
 
@@ -69,6 +72,8 @@ function App() {
   const [empDepartment, setEmpDepartment] = useState('')
   const [empSalary, setEmpSalary] = useState('')
   const [empHireDate, setEmpHireDate] = useState('')
+  const [empCreateAccount, setEmpCreateAccount] = useState(false)
+  const [empPassword, setEmpPassword] = useState('')
 
   // Service form
   const [serviceName, setServiceName] = useState('')
@@ -82,22 +87,48 @@ function App() {
   const [projBudget, setProjBudget] = useState('')
   const [projStartDate, setProjStartDate] = useState('')
   const [projDesc, setProjDesc] = useState('')
+  const [projEmployees, setProjEmployees] = useState([])
+
+  // Task & Time state
+  const [taskList, setTaskList] = useState([])
+  const [myTasks, setMyTasks] = useState([])
+  const [showTaskForm, setShowTaskForm] = useState(false)
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDesc, setTaskDesc] = useState('')
+  const [taskPriority, setTaskPriority] = useState('MEDIUM')
+  const [taskDueDate, setTaskDueDate] = useState('')
+  const [taskProjectId, setTaskProjectId] = useState('')
+  const [taskAssigneeId, setTaskAssigneeId] = useState('')
+
+  const [showLogTimeModal, setShowLogTimeModal] = useState(false)
+  const [logHours, setLogHours] = useState('')
+  const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0])
+  const [logDesc, setLogDesc] = useState('')
+  const [selectedTaskId, setSelectedTaskId] = useState('')
+  const [selectedProjectId, setSelectedProjectId] = useState('')
 
   useEffect(() => {
     if (user && activeTenantId) {
       loadAllData()
+      const role = (user.role || 'ADMIN').toUpperCase()
+      if (role === 'EMPLOYEE' && currentPage === 'dashboard') {
+        setCurrentPage('my-work')
+      }
     }
   }, [user, activeTenantId])
 
   const loadAllData = async () => {
     try {
+      const role = (user?.role || 'ADMIN').toUpperCase()
       await Promise.all([
         loadEmployees(),
         loadServices(),
         loadProjects(),
+        loadActiveProjectsDetailed(),
         loadTenantProfile(),
         loadEmployeeAnalytics(),
-        loadProjectAnalytics()
+        loadProjectAnalytics(),
+        role === 'ADMIN' ? loadTasks() : loadMyTasks()
       ])
     } catch (err) {
       console.error('Error loading data:', err)
@@ -125,9 +156,20 @@ function App() {
   const loadProjects = async () => {
     try {
       const data = await getProjects(activeTenantId)
+      console.log('Projects Loaded:', data)
       setProjects(data)
     } catch (err) {
       console.error('Error loading projects:', err)
+    }
+  }
+
+  const loadActiveProjectsDetailed = async () => {
+    try {
+      const data = await getActiveProjects(activeTenantId)
+      console.log('Active Projects Detailed Loaded:', data)
+      setActiveProjectsDetailed(data)
+    } catch (err) {
+      console.error('Error loading active projects detailed:', err)
     }
   }
 
@@ -158,6 +200,25 @@ function App() {
     }
   }
 
+  const loadTasks = async () => {
+    try {
+      const data = await getTasks(activeTenantId)
+      setTaskList(data)
+    } catch (err) {
+      console.error('Error loading tasks:', err)
+    }
+  }
+
+  const loadMyTasks = async () => {
+    try {
+      if (!user?.employeeId) return
+      const data = await getTasksByAssignee(activeTenantId, user.employeeId)
+      setMyTasks(data)
+    } catch (err) {
+      console.error('Error loading my tasks:', err)
+    }
+  }
+
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -166,8 +227,18 @@ function App() {
 
     try {
       if (isLogin) {
-        const data = await login(email, password)
+        const trimmedEmail = email.trim()
+        console.log('Attempting login with:', { email: trimmedEmail, passwordLength: password.length })
+        const data = await login(trimmedEmail, password)
+        console.log('Login Response Data:', data) // Diagnostic log
         localStorage.setItem('token', data.token)
+
+        // If role is missing, default to ADMIN
+        if (!data.role) {
+          data.role = 'ADMIN'
+          console.warn('Backend sent empty role. Defaulting to ADMIN.')
+        }
+
         setUser(data)
         setSuccess('Authentication successful')
 
@@ -177,8 +248,9 @@ function App() {
           setShowTenantOnboarding(true)
         }
       } else {
-        await register(email, password)
-        setSuccess('Account created. You can now sign in.')
+        const trimmedEmail = email.trim()
+        await register(trimmedEmail, password)
+        setSuccess('Account created for ' + trimmedEmail + '. You can now sign in.')
         setIsLogin(true)
         setPassword('')
       }
@@ -201,13 +273,13 @@ function App() {
 
     try {
       const companyData = {
-        companyName,
-        industry,
+        companyName: companyName.trim(),
+        industry: industry.trim(),
         companySize,
-        website,
-        country,
-        city,
-        contactEmail,
+        website: website.trim(),
+        country: country.trim(),
+        city: city.trim(),
+        contactEmail: contactEmail.trim(),
         employeeCount: parseInt(employees) || 0,
         freelancerCount: parseInt(freelancers) || 0
       }
@@ -235,10 +307,10 @@ function App() {
 
     try {
       const empData = {
-        name: empName,
-        email: empEmail,
-        position: empPosition,
-        department: empDepartment,
+        name: empName.trim(),
+        email: empEmail.trim(),
+        position: empPosition.trim(),
+        department: empDepartment.trim(),
         salary: parseFloat(empSalary),
         hireDate: empHireDate,
         status: 'ACTIVE'
@@ -248,8 +320,24 @@ function App() {
         await updateEmployee(activeTenantId, editingEmployee.id, empData)
         setSuccess('Employee updated successfully')
       } else {
-        await createEmployee(activeTenantId, empData)
+        const emp = await createEmployee(activeTenantId, empData)
         setSuccess('Employee added successfully')
+
+        // Handle account creation for employee
+        if (empCreateAccount && emp.id) {
+          try {
+            console.log('Triggering account creation for:', empEmail)
+            const trimmedEmail = empEmail.trim()
+            const userAccount = await registerEmployee(trimmedEmail, empPassword, emp.id)
+            console.log('Account created for user:', userAccount.id)
+            await linkTenant(userAccount.id, activeTenantId)
+            console.log('Tenant linked successfully')
+            setSuccess(`Employee added and account created: ${trimmedEmail}`)
+          } catch (accountErr) {
+            console.error('Failed to create account:', accountErr)
+            setError(`Employee added, but account creation failed: ${accountErr.message}`)
+          }
+        }
       }
 
       resetEmployeeForm()
@@ -295,7 +383,8 @@ function App() {
         status: projStatus,
         budget: parseFloat(projBudget),
         startDate: projStartDate,
-        description: projDesc
+        description: projDesc,
+        employees: projEmployees.map(id => ({ id: parseInt(id) }))
       }
 
       if (editingProject) {
@@ -367,6 +456,7 @@ function App() {
     setProjBudget('')
     setProjStartDate('')
     setProjDesc('')
+    setProjEmployees([])
     setEditingProject(null)
     setShowProjectForm(false)
   }
@@ -389,6 +479,7 @@ function App() {
     setProjBudget(proj.budget)
     setProjStartDate(proj.startDate)
     setProjDesc(proj.description)
+    setProjEmployees(proj.employees ? proj.employees.map(e => e.id) : [])
     setEditingProject(proj)
     setShowProjectForm(true)
   }
@@ -398,6 +489,8 @@ function App() {
     setUser(null)
     setActiveTenantId('')
     setCurrentPage('dashboard')
+    setEmail('')
+    setPassword('')
     setSuccess('Signed out')
   }
 
@@ -503,13 +596,97 @@ function App() {
         </div>
 
         <div className="section">
-          <h3>Active Projects</h3>
-          {projects.filter(p => p.status === 'ACTIVE').slice(0, 5).map(proj => (
+          <h3>Recent Projects</h3>
+          {projects.slice(0, 5).map(proj => (
             <div key={proj.id} className="list-item">
               <span>{proj.projectName}</span>
-              <span className="badge">${proj.budget}</span>
+              <span className="badge">{proj.status}</span>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderTeams = () => (
+    <div className="page-content">
+      <div className="page-header">
+        <h2>Team Management</h2>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button className="mnc-btn" onClick={() => setCurrentPage('projects')}>Manage Projects</button>
+          <button className="mnc-btn" onClick={() => setCurrentPage('employees')}>Register Employee</button>
+        </div>
+      </div>
+
+      {success && <div className="status-box success">{success}</div>}
+      {error && <div className="status-box error">{error}</div>}
+
+      <div className="comprehensive-dashboard" style={{ marginTop: '2rem' }}>
+        <div className="dashboard-card company-overview" style={{ gridColumn: 'span 3' }}>
+          <div className="card-header">
+            <h3>Project Workforce Insights</h3>
+            <span className="badge">LIVE DATA</span>
+          </div>
+          <p className="hero-subtext" style={{ fontSize: '0.9rem', marginBottom: '2rem' }}>
+            Detailed breakdown of team payroll, member allocation, and project budget utilization.
+          </p>
+
+          <div className="services-list" style={{ maxHeight: 'none' }}>
+            {activeProjectsDetailed.length === 0 && <p className="empty-text">No active projects found. Set a project to ACTIVE to see it here.</p>}
+            {activeProjectsDetailed.map(proj => (
+              <div key={proj.id} className="insight-item" style={{ background: 'rgba(255,255,255,0.02)', padding: '2rem' }}>
+                <div className="insight-left" style={{ flex: 2 }}>
+                  <h3 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.5rem' }}>{proj.projectName}</h3>
+                  <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>{proj.description || 'No description provided'}</p>
+
+                  <div className="insight-meta" style={{ marginTop: '1.5rem' }}>
+                    <div className="stat-box" style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '1rem' }}>
+                      <div className="stat-value">{proj.employees?.length || 0}</div>
+                      <div className="stat-label">Members</div>
+                    </div>
+                    <div className="stat-box" style={{ background: 'rgba(16, 185, 129, 0.05)', padding: '1rem' }}>
+                      <div className="stat-value">${proj.totalTeamPayroll || 0}</div>
+                      <div className="stat-label">Team Payroll</div>
+                    </div>
+                    <div className="stat-box" style={{ background: 'rgba(14, 165, 233, 0.05)', padding: '1rem' }}>
+                      <div className="stat-value">${proj.budget}</div>
+                      <div className="stat-label">Project Budget</div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>Assigned Team:</h4>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {proj.employees?.length > 0 ? proj.employees.map(e => (
+                        <span key={e.id} className="meta-tag" style={{ padding: '4px 12px', borderRadius: '20px' }}>
+                          {e.name} ({e.position})
+                        </span>
+                      )) : <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>No members assigned yet</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="insight-right" style={{ flex: 1, borderLeft: '1px solid var(--border-light)', paddingLeft: '2rem' }}>
+                  <div className="stat-box" style={{ marginBottom: '1rem', border: 'none', textAlign: 'right' }}>
+                    <div className="stat-label">Budget Spent</div>
+                    <div className="stat-value" style={{ color: 'var(--success)', fontSize: '1.5rem' }}>${proj.spent}</div>
+                  </div>
+                  <div className="progress-bar-container">
+                    <div className="progress-legend">
+                      <span>Utilization</span>
+                      <span>{proj.budget > 0 ? Math.round((proj.spent / proj.budget) * 100) : 0}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div className="progress-fill employees" style={{ width: `${proj.budget > 0 ? (proj.spent / proj.budget) * 100 : 0}%` }}></div>
+                    </div>
+                  </div>
+                  <button className="mnc-btn" style={{ width: '100%', marginTop: '2rem' }} onClick={() => editProject(proj)}>
+                    Update Team / Edit Project
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -554,6 +731,21 @@ function App() {
                 <label>Hire Date</label>
                 <input type="date" className="mnc-input" value={empHireDate} onChange={e => setEmpHireDate(e.target.value)} />
               </div>
+              {!editingEmployee && (
+                <div className="section" style={{ border: '1px solid var(--border-light)', padding: '1rem', marginTop: '1rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={empCreateAccount} onChange={e => setEmpCreateAccount(e.target.checked)} />
+                    Create login account for this employee?
+                  </label>
+                  {empCreateAccount && (
+                    <div className="input-container" style={{ marginTop: '1rem' }}>
+                      <label>Set Password</label>
+                      <input type="password" title="At least 6 characters" className="mnc-input" value={empPassword} onChange={e => setEmpPassword(e.target.value)} minLength={6} required />
+                      <small style={{ color: 'var(--text-dim)' }}>Employee will log in using their email and this password.</small>
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <button type="submit" className="mnc-btn" disabled={loading}>Save</button>
                 <button type="button" className="mnc-btn" onClick={resetEmployeeForm} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)' }}>Cancel</button>
@@ -695,6 +887,20 @@ function App() {
                 <label>Description</label>
                 <textarea className="mnc-input" value={projDesc} onChange={e => setProjDesc(e.target.value)} style={{ minHeight: '100px' }}></textarea>
               </div>
+              <div className="input-container">
+                <label>Assign Team (Hold Ctrl/Cmd to select multiple)</label>
+                <select
+                  multiple
+                  className="mnc-input"
+                  value={projEmployees}
+                  onChange={e => setProjEmployees(Array.from(e.target.selectedOptions, option => option.value))}
+                  style={{ minHeight: '120px' }}
+                >
+                  {employeeList.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
+                  ))}
+                </select>
+              </div>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <button type="submit" className="mnc-btn" disabled={loading}>Save</button>
                 <button type="button" className="mnc-btn" onClick={resetProjectForm} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)' }}>Cancel</button>
@@ -713,6 +919,7 @@ function App() {
               <th>Status</th>
               <th>Budget</th>
               <th>Spent</th>
+              <th>Team</th>
               <th>Start Date</th>
               <th>Actions</th>
             </tr>
@@ -725,6 +932,11 @@ function App() {
                 <td><span className="badge">{proj.status}</span></td>
                 <td>${proj.budget}</td>
                 <td>${proj.spent}</td>
+                <td>
+                  <span className="badge" title={proj.employees?.map(e => e.name).join(', ')}>
+                    {proj.employees?.length || 0} Members
+                  </span>
+                </td>
                 <td>{proj.startDate}</td>
                 <td>
                   <button className="btn-small" onClick={() => editProject(proj)}>Edit</button>
@@ -824,6 +1036,234 @@ function App() {
     )
   }
 
+
+  const renderEmployeeDashboard = () => (
+    <div className="page-content">
+      <div className="page-header">
+        <h2>Welcome Back, {user?.email}</h2>
+        <button className="mnc-btn" onClick={() => setShowLogTimeModal(true)}>Log Daily Work</button>
+      </div>
+
+      <div className="stats-overview">
+        <div className="stat-card">
+          <div className="stat-label">Assigned Tasks</div>
+          <div className="stat-value">{myTasks.filter(t => t.status !== 'DONE').length}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Hours Logged (Week)</div>
+          <div className="stat-value">24.5</div>
+        </div>
+      </div>
+
+      {success && <div className="status-box success">{success}</div>}
+      {error && <div className="status-box error">{error}</div>}
+
+      <div className="dashboard-sections">
+        <div className="section">
+          <h3>My Tasks</h3>
+          {myTasks.length === 0 && <p className="empty-text">No tasks assigned to you.</p>}
+          {myTasks.map(task => (
+            <div key={task.id} className="list-item insight-item">
+              <div className="insight-left">
+                <strong>{task.title}</strong>
+                <div className="insight-meta">
+                  <span className={`meta-tag ${task.priority.toLowerCase()}`}>{task.priority}</span>
+                  <span className="meta-tag">{task.project?.projectName}</span>
+                </div>
+              </div>
+              <div className="insight-right">
+                <span className="badge">{task.status}</span>
+                <button className="btn-small" style={{ marginTop: '0.5rem' }} onClick={() => {
+                  setSelectedTaskId(task.id);
+                  setSelectedProjectId(task.project?.id);
+                  setShowLogTimeModal(true);
+                }}>Log Time</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {showLogTimeModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Log Work Hours</h3>
+            <form className="form-stack" onSubmit={handleLogTime}>
+              <div className="input-container">
+                <label>Task (Optional)</label>
+                <select className="mnc-input" value={selectedTaskId} onChange={e => setSelectedTaskId(e.target.value)}>
+                  <option value="">Select Task</option>
+                  {myTasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                </select>
+              </div>
+              <div className="input-container">
+                <label>Date</label>
+                <input type="date" className="mnc-input" value={logDate} onChange={e => setLogDate(e.target.value)} required />
+              </div>
+              <div className="input-container">
+                <label>Hours Spent</label>
+                <input type="number" step="0.5" className="mnc-input" value={logHours} onChange={e => setLogHours(e.target.value)} required />
+              </div>
+              <div className="input-container">
+                <label>Notes</label>
+                <textarea className="mnc-input" value={logDesc} onChange={e => setLogDesc(e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button type="submit" className="mnc-btn">Save Log</button>
+                <button type="button" className="mnc-btn" style={{ background: '#444' }} onClick={() => setShowLogTimeModal(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const handleLogTime = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await logTime(activeTenantId, {
+        hours: parseFloat(logHours),
+        date: logDate,
+        description: logDesc,
+        taskId: selectedTaskId ? parseInt(selectedTaskId) : null,
+        projectId: selectedProjectId ? parseInt(selectedProjectId) : (myTasks.find(t => t.id == selectedTaskId)?.project?.id),
+        employeeId: user.employeeId
+      });
+      setSuccess('Time logged successfully and Admin notified via email!');
+      setShowLogTimeModal(false);
+      setLogHours('');
+      setLogDesc('');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleTaskSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const taskData = {
+        title: taskTitle,
+        description: taskDesc,
+        priority: taskPriority,
+        dueDate: taskDueDate,
+        project: { id: parseInt(taskProjectId) },
+        assignee: taskAssigneeId ? { id: parseInt(taskAssigneeId) } : null,
+        status: 'TODO'
+      };
+      await createTask(activeTenantId, taskData);
+      setSuccess('Task created and employee notified!');
+      setShowTaskForm(false);
+      resetTaskForm();
+      await loadTasks();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const resetTaskForm = () => {
+    setTaskTitle('');
+    setTaskDesc('');
+    setTaskPriority('MEDIUM');
+    setTaskDueDate('');
+    setTaskProjectId('');
+    setTaskAssigneeId('');
+  }
+
+  const renderTasksPage = () => (
+    <div className="page-content">
+      <div className="page-header">
+        <h2>Task Management</h2>
+        <button className="mnc-btn" onClick={() => setShowTaskForm(true)}>+ Create Task</button>
+      </div>
+
+      {success && <div className="status-box success">{success}</div>}
+      {error && <div className="status-box error">{error}</div>}
+
+      {showTaskForm && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Create New Task</h3>
+            <form className="form-stack" onSubmit={handleTaskSubmit}>
+              <div className="input-container">
+                <label>Task Title *</label>
+                <input type="text" className="mnc-input" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} required />
+              </div>
+              <div className="input-container">
+                <label>Project *</label>
+                <select className="mnc-input" value={taskProjectId} onChange={e => setTaskProjectId(e.target.value)} required>
+                  <option value="">Select Project</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.projectName}</option>)}
+                </select>
+              </div>
+              <div className="input-container">
+                <label>Assignee</label>
+                <select className="mnc-input" value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}>
+                  <option value="">Assign Employee</option>
+                  {employeeList.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+                </select>
+              </div>
+              <div className="input-container">
+                <label>Priority</label>
+                <select className="mnc-input" value={taskPriority} onChange={e => setTaskPriority(e.target.value)}>
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                  <option value="URGENT">Urgent</option>
+                </select>
+              </div>
+              <div className="input-container">
+                <label>Due Date</label>
+                <input type="date" className="mnc-input" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} />
+              </div>
+              <div className="input-container">
+                <label>Description</label>
+                <textarea className="mnc-input" value={taskDesc} onChange={e => setTaskDesc(e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button type="submit" className="mnc-btn">Assign Task</button>
+                <button type="button" className="mnc-btn" style={{ background: '#444' }} onClick={() => setShowTaskForm(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <div className="data-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Project</th>
+              <th>Assignee</th>
+              <th>Priority</th>
+              <th>Due Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {taskList.map(task => (
+              <tr key={task.id}>
+                <td>{task.title}</td>
+                <td>{task.project?.projectName}</td>
+                <td>{task.assignee?.name || 'Unassigned'}</td>
+                <td><span className={`meta-tag ${task.priority.toLowerCase()}`}>{task.priority}</span></td>
+                <td>{task.dueDate}</td>
+                <td><span className="badge">{task.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+
   return (
     <div className="mnc-layout dashboard-mode">
       <aside className="sidebar">
@@ -833,24 +1273,42 @@ function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <button className={`nav-item ${currentPage === 'dashboard' ? 'active' : ''}`} onClick={() => setCurrentPage('dashboard')}>
-            📊 Dashboard
-          </button>
-          <button className={`nav-item ${currentPage === 'employees' ? 'active' : ''}`} onClick={() => setCurrentPage('employees')}>
-            👥 Employees
-          </button>
-          <button className={`nav-item ${currentPage === 'services' ? 'active' : ''}`} onClick={() => setCurrentPage('services')}>
-            🎯 Services
-          </button>
-          <button className={`nav-item ${currentPage === 'projects' ? 'active' : ''}`} onClick={() => setCurrentPage('projects')}>
-            📁 Projects
-          </button>
+          {(user?.role || 'ADMIN').toUpperCase() === 'ADMIN' ? (
+            <>
+              <button className={`nav-item ${currentPage === 'dashboard' ? 'active' : ''}`} onClick={() => setCurrentPage('dashboard')}>
+                📊 Dashboard
+              </button>
+              <button className={`nav-item ${currentPage === 'employees' ? 'active' : ''}`} onClick={() => setCurrentPage('employees')}>
+                👥 Employees
+              </button>
+              <button className={`nav-item ${currentPage === 'services' ? 'active' : ''}`} onClick={() => setCurrentPage('services')}>
+                🎯 Services
+              </button>
+              <button className={`nav-item ${currentPage === 'projects' ? 'active' : ''}`} onClick={() => setCurrentPage('projects')}>
+                📁 Projects
+              </button>
+              <button className={`nav-item ${currentPage === 'teams' ? 'active' : ''}`} onClick={() => setCurrentPage('teams')}>
+                🎖️ Team Management
+              </button>
+              <button className={`nav-item ${currentPage === 'tasks' ? 'active' : ''}`} onClick={() => setCurrentPage('tasks')}>
+                📝 Tasks
+              </button>
+            </>
+          ) : (
+            <>
+              <button className={`nav-item ${currentPage === 'my-work' ? 'active' : ''}`} onClick={() => setCurrentPage('my-work')}>
+                💼 My Work
+              </button>
+            </>
+          )}
         </nav>
 
         <div className="sidebar-footer">
           <div className="tenant-info">
             <small>Workspace</small>
             <div>{activeTenantId}</div>
+            <small style={{ marginTop: '0.5rem', display: 'block' }}>Account Role</small>
+            <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{user?.role}</div>
           </div>
           <button className="mnc-btn" onClick={handleLogout} style={{ width: '100%', marginTop: '1rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)' }}>
             Sign Out
@@ -859,10 +1317,20 @@ function App() {
       </aside>
 
       <main className="main-content">
-        {currentPage === 'dashboard' && renderDashboard()}
-        {currentPage === 'employees' && renderEmployees()}
-        {currentPage === 'services' && renderServices()}
-        {currentPage === 'projects' && renderProjects()}
+        {(user?.role || 'ADMIN').toUpperCase() === 'ADMIN' ? (
+          <>
+            {currentPage === 'dashboard' && renderDashboard()}
+            {currentPage === 'employees' && renderEmployees()}
+            {currentPage === 'services' && renderServices()}
+            {currentPage === 'projects' && renderProjects()}
+            {currentPage === 'teams' && renderTeams()}
+            {currentPage === 'tasks' && renderTasksPage()}
+          </>
+        ) : (
+          <>
+            {renderEmployeeDashboard()}
+          </>
+        )}
       </main>
     </div>
   )

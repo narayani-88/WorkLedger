@@ -40,6 +40,14 @@ public class Project {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "project_employees",
+        joinColumns = @JoinColumn(name = "project_id"),
+        inverseJoinColumns = @JoinColumn(name = "employee_id")
+    )
+    private java.util.Set<Employee> employees = new java.util.HashSet<>();
+
     public Project() {
     }
 
@@ -132,5 +140,36 @@ public class Project {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public java.util.Set<Employee> getEmployees() {
+        return employees;
+    }
+
+    public void setEmployees(java.util.Set<Employee> employees) {
+        this.employees = employees;
+    }
+
+    @Transient
+    public BigDecimal getTotalTeamPayroll() {
+        if (employees == null || employees.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return employees.stream()
+                .map(e -> e.getSalary() != null ? e.getSalary() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Project)) return false;
+        Project project = (Project) o;
+        return id != null && id.equals(project.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }

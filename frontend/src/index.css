@@ -1100,3 +1100,66 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* Active Project Insights Styles */
+.insight-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 4px solid var(--primary);
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    transition: var(--transition-smooth);
+}
+
+.insight-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: scale(1.01);
+}
+
+.insight-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.insight-meta {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.meta-tag {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.insight-right {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.insight-budget {
+    font-weight: 700;
+    color: var(--success);
+    font-size: 0.95rem;
+}
+
+.insight-progress {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.empty-text {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 2rem;
+    font-style: italic;
+}

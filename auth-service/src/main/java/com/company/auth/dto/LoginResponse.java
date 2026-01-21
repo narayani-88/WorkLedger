@@ -6,16 +6,36 @@ public class LoginResponse {
     private Long userId;
     private String token;
     private String tenantId;
+    private String role;
+    private Long employeeId;
 
     public LoginResponse() {
     }
 
-    public LoginResponse(String message, String email, Long userId, String token, String tenantId) {
+    public LoginResponse(String message, String email, Long userId, String token, String tenantId, String role, Long employeeId) {
         this.message = message;
         this.email = email;
         this.userId = userId;
         this.token = token;
         this.tenantId = tenantId;
+        this.role = role;
+        this.employeeId = employeeId;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public Long getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(Long employeeId) {
+        this.employeeId = employeeId;
     }
 
     public String getMessage() {

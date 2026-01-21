@@ -42,6 +42,19 @@ export const register = async (email, password) => {
 
     return handleResponse(response);
 };
+
+export const registerEmployee = async (email, password, employeeId) => {
+    const response = await fetch(`${API_URL}/users/register-employee`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ email, password, employeeId }),
+    });
+
+    return handleResponse(response);
+};
 export const linkTenant = async (userId, tenantId) => {
     const response = await fetch(`${API_URL}/auth/users/${userId}/tenant`, {
         method: 'PUT',
