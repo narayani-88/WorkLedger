@@ -1,133 +1,96 @@
-**WorkLedger — Multi-Tenant SaaS Platform (Java, Spring Boot)**
+# 🚀 WorkLedger — Multi-Tenant SaaS Backend Platform
 
+An enterprise-style **multi-tenant SaaS backend platform** built with **Java 17, Spring Boot, PostgreSQL, JWT, Docker, and Microservices Architecture**.  
+Designed to demonstrate real-world backend engineering practices including **tenant isolation, secure authentication, scalability, and clean architecture**.
 
-An enterprise-grade Multi-Tenant SaaS Backend Platform built using Java 17, Spring Boot, PostgreSQL, JWT Security, Docker, and Microservices Architecture.
-Designed to demonstrate real-world backend engineering practices such as tenant isolation, secure authentication, scalability, and clean architecture.
+---
 
-👨‍💻 Author
+## 👩‍💻 Author
+**Narayani Pandey**  
+Java Backend Developer | Spring Boot | Microservices  
+[LinkedIn](#) | [GitHub](#)
 
-Pandey Narayani
-Aspiring Backend Engineer | Java | Spring Boot | Microservices
+---
 
-📌 Project Overview
+## 📌 Project Overview
 
-This platform enables multiple companies (tenants) to use a single SaaS application while ensuring:
+WorkLedger is a backend platform where **multiple organizations (tenants)** can securely share the same infrastructure while maintaining **complete data isolation**.
 
-Complete data isolation
+Each tenant experiences the system as if they have their own private backend.
 
-Secure authentication & authorization
+This project demonstrates:
+- Secure authentication & authorization
+- Schema-level tenant isolation
+- Microservices architecture
+- Production-style deployment using Docker
+- Scalable and modular backend design
 
-High scalability
+---
 
-Modular microservices architecture
+## 🧠 Real-World Use Cases
 
-Production-style deployment using Docker
+This architecture is suitable for:
+- CRM systems  
+- ERP platforms  
+- Project management tools  
+- Inventory systems  
+- HR platforms  
+- Billing & SaaS products  
 
-Each tenant experiences the system as if they have their own private backend, even though the infrastructure is shared.
+Inspired by platforms like **Zoho, Salesforce, Freshworks, Notion Teams**.
 
-🧠 Real-World Use Cases
+---
 
-This architecture is suitable for platforms such as:
+## 🏗️ Architecture Overview
 
-CRM Systems
+Client (Web/Mobile)  
+↓  
+API Gateway  
+↓  
+Auth Service | Tenant Service | Core Service  
+↓  
+PostgreSQL (Schema-per-tenant)  
+↓  
+Notification Service (Async events)
 
-ERP Systems
+---
 
-Project Management Tools
+## 📂 Project Structure
 
-Inventory Management Systems
-
-HR Platforms
-
-Billing Systems
-
-Real-world inspirations include platforms like Zoho, Freshworks, Salesforce, and Notion Teams.
-
-🏗️ High-Level Architecture
-Client (Web/Mobile)
-        ↓
-     API Gateway
-        ↓
--------------------------------------------------
-| Auth Service | Tenant Service | Core Service  |
--------------------------------------------------
-        ↓
-     PostgreSQL (Schema-per-tenant)
-        ↓
-Notification Service (Async Events)
-
-📂 Project Structure
 saas-platform/
 │
-├── api-gateway/          → Entry point, JWT validation, routing
-├── auth-service/         → Login, JWT, refresh tokens
-├── tenant-service/       → Tenant creation, schema provisioning
-├── core-service/         → Business logic (users, projects, reports)
-├── notification-service/ → Async email/event handling
-├── common-lib/           → Shared DTOs, utilities, exceptions
-│
+├── api-gateway/ → JWT validation, routing, security
+├── auth-service/ → Login, JWT, refresh tokens
+├── tenant-service/ → Tenant onboarding, schema provisioning
+├── core-service/ → Business logic (users, projects, reports)
+├── notification-service/→ Async processing, email/events
+├── common-lib/ → Shared DTOs, exceptions, utilities
 ├── docker-compose.yml
 └── README.md
 
-🧩 Microservices Responsibilities
-🔐 API Gateway
 
-JWT validation
+---
 
-Tenant extraction
+## 🔐 Security Features
 
-Request routing
+- JWT-based authentication  
+- Role-Based Access Control (RBAC)  
+- Password hashing  
+- Route-level and method-level security  
+- Stateless authentication  
+- Strict tenant isolation  
 
-Rate limiting
+JWT example payload:
+```json
+{
+  "userId": "123",
+  "tenantId": "tenant_abc",
+  "role": "ADMIN"
+}
+🧱 Multi-Tenancy Design (Core Feature)
+Uses schema-per-tenant architecture:
 
-Centralized security
-
-🔑 Auth Service
-
-Login
-
-Refresh token
-
-Logout
-
-JWT generation
-
-Password hashing
-
-🧱 Tenant Service (Core Feature)
-
-Tenant onboarding
-
-Schema creation per tenant
-
-Auto-provisioning of tables
-
-Stores tenant metadata
-
-🧠 Core Service
-
-Business APIs (Users, Projects, Reports)
-
-RBAC (Role-Based Access Control)
-
-Pagination
-
-Audit logging
-
-Optimistic locking
-
-📩 Notification Service
-
-Asynchronous processing
-
-Email notifications
-
-Event-driven architecture (Kafka/RabbitMQ ready)
-
-🗄️ Database Design (Schema-per-Tenant)
-Master Schema
-
-Stores system-level metadata:
+Master schema:
 
 tenants
 
@@ -139,121 +102,35 @@ schema_name
 
 status
 
-Tenant Schemas
+Tenant schemas:
 
-Each tenant has its own isolated schema:
+tenant_abc.users
 
-users
+tenant_xyz.projects
 
-roles
+✔ Ensures no data leakage between tenants
+✔ Dynamic schema switching using Hibernate + ThreadLocal context
 
-user_roles
+⚙️ Key Features Implemented
+Multi-tenant onboarding with schema auto-provisioning
 
-projects
+Spring Security with JWT & RBAC
 
-audit_logs
+API Gateway for centralized validation and routing
 
-Example:
+Microservices architecture
 
-tenant_abc.users  
-tenant_xyz.projects  
+Dockerized deployment using docker-compose
 
+Integration testing for tenant isolation
 
-✅ No tenant data can ever leak between schemas.
+Clean layered architecture (Controller, Service, Repository)
 
-🔐 Authentication & Tenant Flow
-Login Flow
+Production-style project structure
 
-User logs in with email + password
-
-Auth Service validates credentials
-
-JWT generated:
-
-{
-  "userId": "123",
-  "tenantId": "tenant_abc",
-  "role": "ADMIN"
-}
-
-
-JWT returned to client
-
-Stateless authentication (no server sessions)
-
-🔄 Request Lifecycle (Critical Concept)
-Client → API Gateway → Core Service → Database
-
-
-Internally:
-
-API Gateway validates JWT
-
-Extracts tenantId
-
-Core Service stores tenantId in ThreadLocal
-
-Hibernate dynamically switches schema
-
-Query runs only inside the tenant schema
-
-Response returned safely
-
-🔒 Strong tenant isolation guaranteed
-
-🛡️ Authorization (RBAC)
-
-Implemented using Spring Security.
-
-Roles:
-
-ADMIN
-
-MANAGER
-
-USER
-
-Access is controlled using:
-
-Method-level security
-
-Route-level security
-
-⚙️ Async Processing
-
-Handled by Notification Service:
-
-Email sending
-
-Audit events
-
-Reporting
-
-Background jobs
-
-Enables:
-
-Better performance
-
-Non-blocking APIs
-
-Event-driven scalability
-
-📊 Scalability Strategy
-Layer	Scaling Approach
-API Gateway	Horizontal scaling
-Services	Stateless → Easy to scale
-Database	Read replicas
-Caching	Redis (optional)
-Messaging	Kafka / RabbitMQ
-🐳 Running with Docker
-
-Start all services using:
-
+🐳 Run Locally with Docker
 docker-compose up --build
-
-
-Services included:
+This starts:
 
 PostgreSQL
 
@@ -268,12 +145,36 @@ Core Service
 Notification Service
 
 🧪 Testing Strategy
+Tests are organized under:
+
 src/test/java/
-├── controller/     → API tests
-├── service/        → Business logic tests
-└── integration/    → End-to-end tenant flow tests
+├── controller/   → API tests
+├── service/      → Business logic tests
+└── integration/  → End-to-end tenant flow tests
+Integration tests verify:
+✔ Tenant isolation
+✔ Auth flow
+✔ Secure request lifecycle
+
+📈 What This Project Demonstrates
+Strong Java + Spring Boot fundamentals
+
+Backend architecture thinking
+
+Security best practices
+
+Microservices design
+
+Docker & deployment understanding
+
+Real-world SaaS concepts
+
+Scalable backend system design
+
+📬 Feedback & Contributions
+This is a learning-focused project.
+Suggestions and feedback are welcome.
+
+⭐ If you found this project valuable, feel free to star the repository!
 
 
-Integration tests validate:
-
-Tenant isolation works correctly across requests.
